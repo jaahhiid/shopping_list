@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shopping_list/data/categories.dart';
 import 'package:shopping_list/models/category.dart';
-import 'package:shopping_list/models/grocery_item.dart';
+import '../models/grocery_item.dart';
 
 class NewItem extends StatefulWidget {
   const NewItem({super.key});
@@ -15,18 +17,62 @@ class _NewItemState extends State<NewItem> {
   var _enteredName = '';
   var _enteredAmount = 1;
   var _selectedCategory = categories[Categories.vegetables]!;
+  var _isSending = false;
 
-  void _saveItem() {
+  void _saveItem() async {
     if (_formKay.currentState!.validate()) {
       _formKay.currentState!.save();
+      setState(() {
+        _isSending = true;
+      });
+
+      final url = Uri.https('shopping-list-ba7f0-default-rtdb.firebaseio.com',
+          'shopping-list.json');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode(
+          {
+            'name': _enteredName,
+            'quantity': _enteredAmount,
+            'category': _selectedCategory.title,
+          },
+        ),
+      );
+      // Try to unuse the get
+      // print(response.body);
+      // print(response.statusCode);
+
+      final resData = json.decode(response.body);
+
+      // !context.mounted
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pop(
         GroceryItem(
-          id: DateTime.now().toString(),
+          id: resData['name'],
           name: _enteredName,
           quantity: _enteredAmount,
           category: _selectedCategory,
         ),
       );
+      // ).then((Response) {
+      //   // work with the response
+      // });
+      // Inconvenient to write
+
+      // Navigator.of(context).pop(
+
+      // GroceryItem(
+      //   id: DateTime.now().toString(),
+      //   name: _enteredName,
+      //   quantity: _enteredAmount,
+      //   category: _selectedCategory,
+      // ),
+      // );
     }
   }
 
@@ -120,14 +166,14 @@ class _NewItemState extends State<NewItem> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () {
+                    onPressed: _isSending ? null : () {
                       _formKay.currentState!.reset();
                     },
                     child: const Text('Reset'),
                   ),
                   ElevatedButton(
-                    onPressed: _saveItem,
-                    child: const Text('Add Items'),
+                    onPressed:_isSending ? null : _saveItem,
+                    child: _isSending ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(),) : const Text('Add Items'),
                   ),
                 ],
               )
